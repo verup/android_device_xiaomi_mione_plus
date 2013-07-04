@@ -28,6 +28,10 @@ on init
     symlink /storage/usbdisk0 /mnt/usbdisk0
 
 on boot
+    chown system system /sys/power/autosleep
+    chown system system /sys/class/timed_output/vibrator/pattern
+    chmod 0444 /proc/cmdline
+
     chown system system /sys/class/leds/backlight/brightness
     chown system system /sys/class/leds/flashlight/brightness
     chmod 0666 /sys/class/leds/flashlight/brightness
@@ -42,6 +46,8 @@ on boot
     chown system system /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq
     chmod 0664 /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq
 
+    class_start late_start
+
 # Assign TCP buffer thresholds to be ceiling value of technology maximums
 # Increased technology maximums should be reflected here.
     write /proc/sys/net/core/rmem_max  3461120
@@ -53,6 +59,14 @@ on emmc-fs
     mount ext4 /dev/block/platform/msm_sdcc.1/by-name/userdata /data relatime nosuid nodev barrier=1 journal_checksum noauto_da_alloc
     mount ext4 /dev/block/platform/msm_sdcc.1/by-name/persist /persist relatime nosuid nodev barrier=1 journal_checksum noauto_da_alloc
     mount ext4 /dev/block/platform/msm_sdcc.1/by-name/cache /cache relatime nosuid nodev barrier=1 journal_checksum noauto_da_alloc
+    mount vfat /dev/block/platform/msm_sdcc.1/by-name/modem /firmware ro shortname=lower,uid=1000,gid=1000,dmask=227,fmask=337
+# make modem firmware available at /vendor/firmware/image ( /vendor symlink to /system/vendor )
+    mkdir /system/vendor/firmware/ 0755 system system
+    symlink /firmware/image /system/vendor/firmware/image
+    exec /system/bin/sh /system/etc/init.qcom.modem_links.sh
+    exec /system/bin/sh /system/etc/init.qcom.mdm_links.sh
+    write /sys/devices/i2c-0/0-0024/cyttsp_update_fw 1
+
     #Setting permissons for misc partition
     chmod 0666 /dev/block/platform/msm_sdcc.1/by-name/misc
 
@@ -72,7 +86,7 @@ on charger
     write /sys/module/rpm_resources/enable_low_power/pxo 1
     write /sys/module/rpm_resources/enable_low_power/vdd_dig 2
     write /sys/module/rpm_resources/enable_low_power/vdd_mem 2
-    write /sys/module/rpm_resources/enable_low_power/rpm_cpu 1
+    write /sys/module/rpm_resources/mode/rpm_cpu 1
     write /sys/module/pm_8x60/modes/cpu0/power_collapse/suspend_enabled 1
     write /sys/module/pm_8x60/modes/cpu1/power_collapse/suspend_enabled 1
     write /sys/module/pm_8x60/modes/cpu0/standalone_power_collapse/suspend_enabled 1
@@ -106,4 +120,8 @@ on property:sys.mione.battlevel=high
     write /sys/devices/system/cpu/cpu1/online 1
     write /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq 2000000
     start thermald
+
+service fmradio /system/bin/fmradioserver
+    class main
+    group bluetooth net_bt_admin
 
